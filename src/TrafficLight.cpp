@@ -31,6 +31,7 @@ void MessageQueue<T>::send(T &&msg)
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
   	std::lock_guard<std::mutex> g_lock(_mutex);
+  	_queue.clear();
  	_queue.emplace_back(std::move(msg));
   	_condition.notify_one();
 }
@@ -76,10 +77,13 @@ void TrafficLight::cycleThroughPhases()
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles. 
   	
-  	// default cycle duration and current time
-  	double cycleDuration = 4;
+  	// seed random cycle duration and current time
+  	std::random_device rd;
+ 	std::mt19937 eng(rd());
+    std::uniform_int_distribution<> distr(4000, 6000);
+  	long cycleDuration = distr(eng);
+  
   	std::chrono::time_point<std::chrono::system_clock> lastUpdate;
-
     // init stop watch
     lastUpdate = std::chrono::system_clock::now();
   
@@ -87,7 +91,7 @@ void TrafficLight::cycleThroughPhases()
     {
     	std::this_thread::sleep_for(std::chrono::milliseconds(1));
       	
-      	long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count() / 1000;
+      	long timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - lastUpdate).count();
       	
         if(timeSinceLastUpdate >= cycleDuration)
         {
@@ -95,10 +99,7 @@ void TrafficLight::cycleThroughPhases()
           	_currentPhase = _currentPhase == TrafficLightPhase::red ? TrafficLightPhase::green : TrafficLightPhase::red;
           	_messageQueue.send(std::move(_currentPhase));
           	
-            // set a new random cycle duration between 4 and 6
-            std::random_device rd;
-            std::mt19937 eng(rd());
-            std::uniform_int_distribution<> distr(4, 6);
+            // set a new random cycle duration between 4000ms and 6000ms
             cycleDuration = distr(eng);
           
           	// reset stop watch for next cycle
